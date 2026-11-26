@@ -1,0 +1,139 @@
+{
+  "vehicles": [
+    {
+      "id": "hover_bike",
+      "name": "Hover Bike",
+      "description": "Fast personal reconnaissance and light courier transport",
+      "dimensions": {
+        "width": 1,
+        "height": 1,
+        "length": 4
+      },
+      "cargoSlots": 4,
+      "color": {
+        "r": 0.08,
+        "g": 0.28,
+        "b": 0.38,
+        "a": 1.0
+      },
+      "physics": {
+        "hoverRiseSpeed": 3.0,
+        "hoverDropSpeed": 2.0
+      },
+      "dedicatedSlots": {
+        "engine": 1,
+        "power": 1
+      },
+      "tags": ["personal", "fast", "light"],
+      "cost": 50000
+    },
+    {
+      "id": "hover_car",
+      "name": "Hover Car",
+      "description": "Multi-passenger/utility transport and resource hauling",
+      "dimensions": {
+        "width": 1,
+        "height": 3,
+        "length": 5
+      },
+      "cargoSlots": 14,
+      "color": {
+        "r": 0.12,
+        "g": 0.35,
+        "b": 0.42,
+        "a": 1.0
+      },
+      "physics": {
+        "hoverRiseSpeed": 2.5,
+        "hoverDropSpeed": 2.0
+      },
+      "dedicatedSlots": {
+        "engine": 1,
+        "power": 1
+      },
+      "tags": ["utility", "cargo", "multi-passenger"],
+      "cost": 120000
+    },
+    {
+      "id": "big_droid",
+      "name": "Heavy Droid",
+      "description": "Autonomous or piloted heavy platform; supports combat, mobile crafting, or heavy cargo",
+      "dimensions": {
+        "width": 5,
+        "height": 15,
+        "length": 5
+      },
+      "cargoSlots": 32,
+      "color": {
+        "r": 0.25,
+        "g": 0.25,
+        "b": 0.28,
+        "a": 1.0
+      },
+      "physics": {
+        "hoverRiseSpeed": 1.5,
+        "hoverDropSpeed": 1.5
+      },
+      "dedicatedSlots": {
+        "engine": 1,
+        "power": 1
+      },
+      "tags": ["heavy", "droid", "platform"],
+      "cost": 450000
+    },
+    {
+      "id": "scout_speeder",
+      "name": "Scout Speeder",
+      "description": "Lightweight exploration vehicle with enhanced sensor arrays",
+      "dimensions": {
+        "width": 1,
+        "height": 2,
+        "length": 3
+      },
+      "cargoSlots": 6,
+      "color": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.3,
+        "a": 1.0
+      },
+      "physics": {
+        "hoverRiseSpeed": 3.5,
+        "hoverDropSpeed": 2.5
+      },
+      "dedicatedSlots": {
+        "engine": 1,
+        "power": 1
+      },
+      "tags": ["scout", "exploration", "fast"],
+      "cost": 85000
+    },
+    {
+      "id": "cargo_hauler",
+      "name": "Cargo Hauler",
+      "description": "Heavy transport vessel optimized for maximum cargo capacity",
+      "dimensions": {
+        "width": 2,
+        "height": 2,
+        "length": 6
+      },
+      "cargoSlots": 24,
+      "color": {
+        "r": 0.4,
+        "g": 0.3,
+        "b": 0.1,
+        "a": 1.0
+      },
+      "physics": {
+        "hoverRiseSpeed": 2.0,
+        "hoverDropSpeed": 1.8
+      },
+      "dedicatedSlots": {
+        "engine": 1,
+        "power": 1
+      },
+      "tags": ["cargo", "transport", "heavy"],
+      "cost": 200000
+    }
+  ]
+}
