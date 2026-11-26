@@ -13,7 +13,8 @@ public sealed class UnifiedNameplate : MonoBehaviour
     [SerializeField] private Color backgroundColor = Color.black;
     [SerializeField] private Vector2 padding = new Vector2(0.5f, 0.3f);
 
-    private Transform backgroundTransform;
+    private GameObject backgroundObject;
+    private MeshFilter backgroundMeshFilter;
     private MeshRenderer backgroundRenderer;
     private Material backgroundMaterial;
 
@@ -40,55 +41,84 @@ public sealed class UnifiedNameplate : MonoBehaviour
     /// </summary>
     public void Refresh()
     {
-        if (text == null || !EnsureBackground()) return;
+        if (text == null || backgroundObject == null) return;
 
         text.ForceMeshUpdate();
         Bounds textBounds = text.textBounds;
-        backgroundTransform.localPosition = new Vector3(
+        
+        // Position background behind text
+        backgroundObject.transform.localPosition = new Vector3(
             textBounds.center.x,
             textBounds.center.y,
-            textBounds.center.z + 0.1f);
-        backgroundTransform.localScale = new Vector3(
+            textBounds.center.z + 0.01f);
+        
+        // Scale background to fit text with padding
+        backgroundObject.transform.localScale = new Vector3(
             Mathf.Max(textBounds.size.x + padding.x, 0.1f),
             Mathf.Max(textBounds.size.y + padding.y, 0.1f),
             1f);
+        
+        // Keep renderer enabled and color correct
         backgroundRenderer.enabled = !string.IsNullOrEmpty(text.text);
+        if (backgroundMaterial != null)
+        {
+            backgroundMaterial.color = backgroundColor;
+        }
     }
 
-    private bool EnsureBackground()
+    private void EnsureBackground()
     {
-        if (backgroundTransform != null) return true;
+        if (backgroundObject != null) return;
 
-        Transform existingBackground = transform.Find("Nameplate Background");
-        if (existingBackground != null)
+        // Check if already exists
+        Transform existing = transform.Find("Nameplate Background");
+        if (existing != null)
         {
-            backgroundTransform = existingBackground;
-            backgroundRenderer = existingBackground.GetComponent<MeshRenderer>();
-            if (backgroundRenderer != null) return true;
+            backgroundObject = existing.gameObject;
+            backgroundRenderer = backgroundObject.GetComponent<MeshRenderer>();
+            backgroundMeshFilter = backgroundObject.GetComponent<MeshFilter>();
+            if (backgroundRenderer != null && backgroundMeshFilter != null) return;
         }
 
-        Shader shader = Shader.Find("Sprites/Default");
-        if (shader == null)
+        // Create new background object
+        backgroundObject = new GameObject("Nameplate Background");
+        backgroundObject.transform.SetParent(transform, false);
+        backgroundObject.transform.localPosition = Vector3.zero;
+        backgroundObject.transform.localRotation = Quaternion.identity;
+
+        // Add mesh filter and renderer
+        backgroundMeshFilter = backgroundObject.AddComponent<MeshFilter>();
+        backgroundRenderer = backgroundObject.AddComponent<MeshRenderer>();
+
+        // Create a simple quad mesh
+        Mesh quadMesh = new Mesh();
+        quadMesh.name = "Nameplate Quad";
+        quadMesh.vertices = new Vector3[]
         {
-            Debug.LogError("Could not find a shader for nameplate backgrounds.", this);
-            return false;
-        }
+            new Vector3(-0.5f, -0.5f, 0f),
+            new Vector3(0.5f, -0.5f, 0f),
+            new Vector3(0.5f, 0.5f, 0f),
+            new Vector3(-0.5f, 0.5f, 0f)
+        };
+        quadMesh.triangles = new int[] { 0, 2, 1, 0, 3, 2 };
+        quadMesh.uv = new Vector2[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+        quadMesh.RecalculateNormals();
+        backgroundMeshFilter.mesh = quadMesh;
 
-        GameObject background = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        background.name = "Nameplate Background";
-        background.transform.SetParent(transform, false);
-        Collider backgroundCollider = background.GetComponent<Collider>();
-        if (backgroundCollider != null) Destroy(backgroundCollider);
-
-        backgroundTransform = background.transform;
-        backgroundRenderer = background.GetComponent<MeshRenderer>();
+        // Configure renderer
         backgroundRenderer.shadowCastingMode = ShadowCastingMode.Off;
         backgroundRenderer.receiveShadows = false;
+
+        // Create material with black color
+        Shader shader = Shader.Find("Standard");
+        if (shader == null) shader = Shader.Find("Sprites/Default");
+        
         backgroundMaterial = new Material(shader);
+        backgroundMaterial.name = "Nameplate Background Material";
         backgroundMaterial.color = backgroundColor;
         backgroundMaterial.renderQueue = 3000;
+        
         backgroundRenderer.sharedMaterial = backgroundMaterial;
-        return true;
     }
 
     private void OnDestroy()
@@ -96,6 +126,10 @@ public sealed class UnifiedNameplate : MonoBehaviour
         if (backgroundMaterial != null)
         {
             Destroy(backgroundMaterial);
+        }
+        if (backgroundObject != null)
+        {
+            Destroy(backgroundObject);
         }
     }
 }
