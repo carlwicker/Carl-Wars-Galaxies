@@ -1,7 +1,7 @@
 # Unified Nameplate System
 
 ## Overview
-A centralized nameplate system that provides **consistent styling across all world objects**: black backgrounds with white text. This replaces the previous `NameplateBackground.cs` with a more robust `UnifiedNameplate.cs` component.
+A centralized nameplate system that provides black backgrounds with white text for players, vehicles, pickups, and chat bubbles. `UnifiedNameplate` uses the same `NameplateBackground` renderer as the original player nameplate.
 
 ## What Changed
 
@@ -12,18 +12,20 @@ A centralized nameplate system that provides **consistent styling across all wor
   - White text color (enforced at Awake)
   - Dynamic background sizing based on text content
   - Consistent padding around text (0.5 horizontal, 0.3 vertical)
-  - Automatic mesh updates when text changes
+  - Background resizing when `Refresh()` is called after text changes
 
 ### Updated Components
-1. **Vehicle.cs** - Vehicle nameplates now use `UnifiedNameplate`
+1. **PlayerIdentity.cs** - Player names use `UnifiedNameplate` and update when the networked name changes
+
+2. **Vehicle.cs** - Vehicle nameplates use `UnifiedNameplate`
    - Text color set to white
    - Consistent black background styling
 
-2. **PlayerChat.cs** - Chat bubbles now use `UnifiedNameplate`
+3. **PlayerChat.cs** - Chat bubbles use `UnifiedNameplate`
    - Chat text displays as white on black background
    - Consistent appearance with other world objects
 
-3. **WorldPickup.cs** - Pickup item nameplates now use `UnifiedNameplate`
+4. **WorldPickup.cs** - Pickup item nameplates use `UnifiedNameplate`
    - Item names display with consistent white-on-black styling
    - Item counts included in display
 
@@ -85,7 +87,7 @@ unifiedNameplate.Refresh();
 - **Lighting**: No shadow casting, no shadow receiving
 
 ## Migration Notes
-The old `NameplateBackground.cs` component is now deprecated. While it may still exist in the codebase, all new nameplates should use `UnifiedNameplate.cs`. Consider removing `NameplateBackground.cs` after ensuring no other components reference it.
+`NameplateBackground` is required by `UnifiedNameplate` and creates the background. Do not remove it.
 
 ## Benefits
 ✓ **Consistency**: All world objects have the same nameplate appearance  

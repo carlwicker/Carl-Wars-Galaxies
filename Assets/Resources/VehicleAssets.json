@@ -1,11 +1,11 @@
 {
   "vehicles": [
     {
-      "id": "hover_bike",
-      "name": "Hover Bike",
+      "id": "m68",
+      "name": "M-68 Landspeeder",
       "description": "Fast personal reconnaissance and light courier transport",
       "dimensions": {
-        "width": 1,
+        "width": 2,
         "height": 1,
         "length": 4
       },
@@ -58,6 +58,33 @@
       "id": "big_droid",
       "name": "Heavy Droid",
       "description": "Autonomous or piloted heavy platform; supports combat, mobile crafting, or heavy cargo",
+      "dimensions": {
+        "width": 5,
+        "height": 15,
+        "length": 5
+      },
+      "cargoSlots": 32,
+      "color": {
+        "r": 0.25,
+        "g": 0.25,
+        "b": 0.28,
+        "a": 1.0
+      },
+      "physics": {
+        "hoverRiseSpeed": 1.5,
+        "hoverDropSpeed": 1.5
+      },
+      "dedicatedSlots": {
+        "engine": 1,
+        "power": 1
+      },
+      "tags": ["heavy", "droid", "platform"],
+      "cost": 450000
+    },
+    {
+      "id": "m86",
+      "name": "M86",
+      "description": "Heavy droid platform",
       "dimensions": {
         "width": 5,
         "height": 15,

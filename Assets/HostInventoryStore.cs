@@ -11,6 +11,15 @@ public static class HostInventoryStore
         public string itemId;
         public string itemName;
         public int count;
+        public int quality;
+        public int conductivity;
+        public int speed;
+        public int experimentPoints;
+        public float energyUsed;
+        public int potentialEnergy;
+        public int coldResistance;
+        public int decayResistance;
+        public int entangleResistance;
     }
 
     [Serializable]
@@ -20,6 +29,15 @@ public static class HostInventoryStore
         public string itemId;
         public string itemName;
         public int count;
+        public int quality;
+        public int conductivity;
+        public int speed;
+        public int experimentPoints;
+        public float energyUsed;
+        public int potentialEnergy;
+        public int coldResistance;
+        public int decayResistance;
+        public int entangleResistance;
         public float x;
         public float y;
         public float z;
@@ -34,7 +52,12 @@ public static class HostInventoryStore
         public float z;
         public float yaw;
         public bool engineInstalled;
+        public int engineQuality;
+        public int engineSpeed;
+        public int engineExperimentPoints;
         public bool powerInstalled;
+        public int powerQuality;
+        public float powerEnergyUsed;
         public bool isOn;
         public List<SavedItem> cargo = new List<SavedItem>();
     }
@@ -276,7 +299,16 @@ public static class HostInventoryStore
                 {
                     itemId = item.itemId,
                     itemName = item.itemName,
-                    count = item.count
+                    count = item.count,
+                    quality = item.quality,
+                    conductivity = item.conductivity,
+                    speed = item.speed,
+                    experimentPoints = item.experimentPoints,
+                    energyUsed = item.energyUsed,
+                    potentialEnergy = item.potentialEnergy,
+                    coldResistance = item.coldResistance,
+                    decayResistance = item.decayResistance,
+                    entangleResistance = item.entangleResistance
                 });
             }
         }
@@ -292,6 +324,15 @@ public static class HostInventoryStore
             itemId = pickup.itemId,
             itemName = pickup.itemName,
             count = pickup.count,
+            quality = pickup.quality,
+            conductivity = pickup.conductivity,
+            speed = pickup.speed,
+            experimentPoints = pickup.experimentPoints,
+            energyUsed = pickup.energyUsed,
+            potentialEnergy = pickup.potentialEnergy,
+            coldResistance = pickup.coldResistance,
+            decayResistance = pickup.decayResistance,
+            entangleResistance = pickup.entangleResistance,
             x = pickup.x,
             y = pickup.y,
             z = pickup.z

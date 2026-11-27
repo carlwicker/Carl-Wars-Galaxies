@@ -8,7 +8,7 @@ public sealed class PlayerIdentity : NetworkBehaviour
 {
     [SerializeField] private TMP_Text nameplateText;
 
-    private NameplateBackground nameplateBackground;
+    private UnifiedNameplate nameplate;
 
     public NetworkVariable<FixedString32Bytes> PlayerName = new NetworkVariable<FixedString32Bytes>(
         "Player",
@@ -45,18 +45,17 @@ public sealed class PlayerIdentity : NetworkBehaviour
         {
             nameplateText.text = newName;
             nameplateText.fontSize = 32;
-            nameplateText.color = Color.white;
-            
-            if (nameplateBackground == null)
+
+            if (nameplate == null)
             {
-                nameplateBackground = nameplateText.GetComponent<NameplateBackground>();
-                if (nameplateBackground == null)
+                nameplate = nameplateText.GetComponent<UnifiedNameplate>();
+                if (nameplate == null)
                 {
-                    nameplateBackground = nameplateText.gameObject.AddComponent<NameplateBackground>();
+                    nameplate = nameplateText.gameObject.AddComponent<UnifiedNameplate>();
                 }
             }
 
-            nameplateBackground.Refresh();
+            nameplate.Refresh();
         }
     }
 

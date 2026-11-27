@@ -1,0 +1,6 @@
+{
+    "name": "VehicleCollisionTests",
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

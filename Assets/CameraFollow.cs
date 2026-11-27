@@ -11,7 +11,7 @@ public class CameraFollow : MonoBehaviour
     [Header("Zoom Settings")]
     [SerializeField] private float zoomSpeed = 1.5f;
     [SerializeField] private float minZoom = 4f;
-    [SerializeField] private float maxZoom = 20f;
+    [SerializeField] private float maxZoom = 60f;
 
     [Header("Orbit Settings")]
     [SerializeField] private float orbitSensitivity = 0.15f;

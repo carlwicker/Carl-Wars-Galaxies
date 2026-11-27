@@ -213,6 +213,8 @@ GameObject:
   - component: {fileID: 1000000000000000008}
   - component: {fileID: 1000000000000000009}
   - component: {fileID: 1000000000000000012}
+  - component: {fileID: 1000000000000000013}
+  - component: {fileID: 1000000000000000014}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -607,7 +609,6 @@ MonoBehaviour:
   inventory: {fileID: 1000000000000000008}
   playerChat: {fileID: 1000000000000000001}
   visualRoot: {fileID: 1000000000000000011}
-  interactionRange: 5
 --- !u!114 &1000000000000000012
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -620,3 +621,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89e40c936da74627a39ef86577401e87, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::VehicleInteraction
+--- !u!114 &1000000000000000013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7594274536757868928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e0ca1262ce24d8f8c64b8d5f780dd62, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHAM
+--- !u!114 &1000000000000000014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7594274536757868928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29a4a1f3b8c44066b2256643195fa337, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCombat

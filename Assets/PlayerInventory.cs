@@ -12,12 +12,32 @@ public struct InventorySlot : INetworkSerializable, IEquatable<InventorySlot>
     public FixedString32Bytes ItemId;
     public FixedString32Bytes ItemName;
     public int Count;
+    public int Quality;
+    public int Conductivity;
+    public int Speed;
+    public int ExperimentPoints;
+    public float EnergyUsed;
+    public int PotentialEnergy;
+    public int ColdResistance;
+    public int DecayResistance;
+    public int EntangleResistance;
 
-    public InventorySlot(string itemId, string itemName, int count)
+    public InventorySlot(string itemId, string itemName, int count, int quality = 0, int speed = 0,
+        int experimentPoints = 0, int conductivity = 0, float energyUsed = 0f, int potentialEnergy = 0,
+        int coldResistance = 0, int decayResistance = 0, int entangleResistance = 0)
     {
         ItemId = new FixedString32Bytes(itemId);
         ItemName = new FixedString32Bytes(itemName);
         Count = count;
+        Quality = quality;
+        Conductivity = conductivity;
+        Speed = speed;
+        ExperimentPoints = experimentPoints;
+        EnergyUsed = energyUsed;
+        PotentialEnergy = potentialEnergy;
+        ColdResistance = coldResistance;
+        DecayResistance = decayResistance;
+        EntangleResistance = entangleResistance;
     }
 
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -25,13 +45,26 @@ public struct InventorySlot : INetworkSerializable, IEquatable<InventorySlot>
         serializer.SerializeValue(ref ItemId);
         serializer.SerializeValue(ref ItemName);
         serializer.SerializeValue(ref Count);
+        serializer.SerializeValue(ref Quality);
+        serializer.SerializeValue(ref Conductivity);
+        serializer.SerializeValue(ref Speed);
+        serializer.SerializeValue(ref ExperimentPoints);
+        serializer.SerializeValue(ref EnergyUsed);
+        serializer.SerializeValue(ref PotentialEnergy);
+        serializer.SerializeValue(ref ColdResistance);
+        serializer.SerializeValue(ref DecayResistance);
+        serializer.SerializeValue(ref EntangleResistance);
     }
 
     public bool Equals(InventorySlot other)
     {
         return ItemId.Equals(other.ItemId)
             && ItemName.Equals(other.ItemName)
-            && Count == other.Count;
+            && Count == other.Count
+            && Quality == other.Quality && Conductivity == other.Conductivity
+            && Speed == other.Speed && ExperimentPoints == other.ExperimentPoints && EnergyUsed == other.EnergyUsed
+            && PotentialEnergy == other.PotentialEnergy && ColdResistance == other.ColdResistance
+            && DecayResistance == other.DecayResistance && EntangleResistance == other.EntangleResistance;
     }
 
     public override bool Equals(object obj)
@@ -43,7 +76,10 @@ public struct InventorySlot : INetworkSerializable, IEquatable<InventorySlot>
     {
         unchecked
         {
-            return ((ItemId.GetHashCode() * 397) ^ ItemName.GetHashCode()) * 397 ^ Count;
+            int hash = ((ItemId.GetHashCode() * 397) ^ ItemName.GetHashCode()) * 397 ^ Count;
+            return (((((((((hash * 397) ^ Quality) * 397 ^ Conductivity) * 397 ^ Speed)
+                * 397 ^ ExperimentPoints) * 397 ^ EnergyUsed.GetHashCode()) * 397 ^ PotentialEnergy)
+                * 397 ^ ColdResistance) * 397 ^ DecayResistance) * 397 ^ EntangleResistance;
         }
     }
 }
@@ -52,13 +88,15 @@ public sealed class PlayerInventory : NetworkBehaviour
 {
     public const int MaximumSlots = 24;
     public const int MaximumStackSize = 99;
-    private const float PickupRange = 5f;
-
     private readonly NetworkList<InventorySlot> slots = new NetworkList<InventorySlot>(
         null,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
     private readonly NetworkVariable<bool> inventoryReady = new NetworkVariable<bool>(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> surveyingToolActive = new NetworkVariable<bool>(
         false,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
@@ -70,6 +108,7 @@ public sealed class PlayerInventory : NetworkBehaviour
 
     public NetworkList<InventorySlot> Slots => slots;
     public bool IsReady => inventoryReady.Value;
+    public bool IsSurveyingToolActive => surveyingToolActive.Value;
     public string StatusMessage => Time.unscaledTime < statusExpiresAt ? statusMessage : string.Empty;
 
     public override void OnNetworkSpawn()
@@ -146,6 +185,146 @@ public sealed class PlayerInventory : NetworkBehaviour
         }
     }
 
+    public void RequestAssembly(int metalSlot, int petrochemicalSlot)
+    {
+        RequestAssembly("engine", metalSlot, petrochemicalSlot);
+    }
+
+    public void RequestAssembly(string schematicId, int firstResourceSlot, int secondResourceSlot)
+    {
+        if (IsOwner && IsSpawned && IsReady && IsValidSchematicId(schematicId))
+            AssembleServerRpc(new FixedString32Bytes(schematicId), firstResourceSlot, secondResourceSlot);
+    }
+
+    public void RequestExperiment(int slotIndex)
+    {
+        RequestExperiment("engine", slotIndex);
+    }
+
+    public void RequestExperiment(string schematicId, int slotIndex)
+    {
+        if (IsOwner && IsSpawned && IsReady && IsValidSchematicId(schematicId))
+            ExperimentCraftServerRpc(new FixedString32Bytes(schematicId), slotIndex);
+    }
+
+    public void RequestFinishCraft(int slotIndex)
+    {
+        RequestFinishCraft("engine", slotIndex);
+    }
+
+    public void RequestFinishCraft(string schematicId, int slotIndex)
+    {
+        if (IsOwner && IsSpawned && IsReady && IsValidSchematicId(schematicId))
+            FinishCraftServerRpc(new FixedString32Bytes(schematicId), slotIndex);
+    }
+
+    private static bool IsValidSchematicId(string schematicId)
+    {
+        return schematicId == "engine" || schematicId == "power" || schematicId == "surveying_tool";
+    }
+
+    private bool CanCraft()
+    {
+        CraftingTerminal[] terminals = FindObjectsByType<CraftingTerminal>();
+        foreach (CraftingTerminal terminal in terminals)
+            if (terminal.isActiveAndEnabled && terminal.IsWithinRange(transform.position)) return true;
+        ShowCraftingStatus("Move closer to a crafting terminal.");
+        return false;
+    }
+
+    [ServerRpc]
+    private void AssembleServerRpc(FixedString32Bytes schematicId, int firstSlot, int secondSlot,
+        ServerRpcParams rpcParams = default)
+    {
+        if (rpcParams.Receive.SenderClientId != OwnerClientId || !IsReady || !CanCraft()) return;
+        CraftingSchematic recipe = CraftingSchematic.LoadById(schematicId.ToString());
+        if (recipe == null)
+        {
+            Debug.LogError("Crafting schematic is missing or invalid.", this);
+            ShowCraftingStatus("Crafting schematic is unavailable. Check the host log.");
+            return;
+        }
+        List<HostInventoryStore.SavedItem> items = CreateSavedItems();
+        bool success = UnityEngine.Random.Range(0, 100) >= 10;
+        if (!EngineCrafting.TryAssemble(items, recipe, firstSlot, secondSlot, success, out string message))
+        {
+            if (message == "Crafting schematic is missing or invalid.") Debug.LogError(message, this);
+            ShowCraftingStatus(message);
+            return;
+        }
+        if (!TrySave(items)) return;
+        ApplySavedItems(items);
+        ShowCraftingStatus(message);
+    }
+
+    [ServerRpc]
+    private void ExperimentCraftServerRpc(FixedString32Bytes schematicId, int slotIndex,
+        ServerRpcParams rpcParams = default)
+    {
+        if (rpcParams.Receive.SenderClientId != OwnerClientId || !IsReady || !CanCraft()) return;
+        CraftingSchematic recipe = CraftingSchematic.LoadById(schematicId.ToString());
+        if (recipe == null)
+        {
+            Debug.LogError("Crafting schematic is missing or invalid.", this);
+            ShowCraftingStatus("Crafting schematic is unavailable. Check the host log.");
+            return;
+        }
+        if (!recipe.usesExperimentation || slotIndex < 0 || slotIndex >= slots.Count
+            || slots[slotIndex].ItemId.ToString() != recipe.prototypeId
+            || slots[slotIndex].ExperimentPoints <= 0)
+        {
+            ShowCraftingStatus("Select a prototype with experiment points remaining.");
+            return;
+        }
+        List<HostInventoryStore.SavedItem> items = CreateSavedItems();
+        HostInventoryStore.SavedItem prototype = items[slotIndex];
+        bool success = UnityEngine.Random.Range(0, 100) < 75;
+        if (!EngineCrafting.TryExperiment(prototype, recipe.prototypeId, success))
+        {
+            ShowCraftingStatus("Invalid engine prototype.");
+            return;
+        }
+        if (!TrySave(items)) return;
+        ApplySavedItems(items);
+        ShowCraftingStatus(success ? "Experiment succeeded: speed increased."
+            : "Experiment failed: speed decreased.");
+    }
+
+    [ServerRpc]
+    private void FinishCraftServerRpc(FixedString32Bytes schematicId, int slotIndex,
+        ServerRpcParams rpcParams = default)
+    {
+        if (rpcParams.Receive.SenderClientId != OwnerClientId || !IsReady || !CanCraft()) return;
+        CraftingSchematic recipe = CraftingSchematic.LoadById(schematicId.ToString());
+        if (recipe == null)
+        {
+            Debug.LogError("Crafting schematic is missing or invalid.", this);
+            ShowCraftingStatus("Crafting schematic is unavailable. Check the host log.");
+            return;
+        }
+        if (!recipe.usesExperimentation || slotIndex < 0 || slotIndex >= slots.Count
+            || slots[slotIndex].ItemId.ToString() != recipe.prototypeId)
+        {
+            ShowCraftingStatus("Select a valid crafting prototype.");
+            return;
+        }
+        List<HostInventoryStore.SavedItem> items = CreateSavedItems();
+        items[slotIndex].itemId = recipe.outputId;
+        items[slotIndex].itemName = recipe.displayName;
+        items[slotIndex].experimentPoints = 0;
+        if (!TrySave(items)) return;
+        ApplySavedItems(items);
+        ShowCraftingStatus($"{recipe.displayName} completed.");
+    }
+
+    private void ShowCraftingStatus(string message)
+    {
+        ShowStatusClientRpc(new FixedString128Bytes(message), new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = new[] { OwnerClientId } }
+        });
+    }
+
     public bool TransferVehicleItem(Vehicle vehicle, int playerSlot, int vehicleSlot, bool toVehicle, string expectedItemId)
     {
         if (!IsServer || !IsReady || vehicle == null || !vehicle.IsReady || vehicle.IsOccupied
@@ -163,11 +342,16 @@ public sealed class PlayerInventory : NetworkBehaviour
             {
                 if (state.engineInstalled || source.itemId != "engine_cube") return false;
                 state.engineInstalled = true;
+                state.engineQuality = source.quality;
+                state.engineSpeed = source.speed;
+                state.engineExperimentPoints = source.experimentPoints;
             }
             else if (vehicleSlot == 1)
             {
                 if (state.powerInstalled || source.itemId != "power_cube") return false;
                 state.powerInstalled = true;
+                state.powerQuality = source.quality;
+                state.powerEnergyUsed = source.energyUsed;
             }
             else
             {
@@ -175,7 +359,7 @@ public sealed class PlayerInventory : NetworkBehaviour
                 if (index < state.cargo.Count)
                 {
                     HostInventoryStore.SavedItem target = state.cargo[index];
-                    if (target.itemId != source.itemId || target.count >= MaximumStackSize) return false;
+                    if (source.itemId == "engine_prototype" || !SameItem(target, source) || target.count >= MaximumStackSize) return false;
                     target.count++;
                 }
                 else if (index == state.cargo.Count)
@@ -184,7 +368,16 @@ public sealed class PlayerInventory : NetworkBehaviour
                     {
                         itemId = source.itemId,
                         itemName = source.itemName,
-                        count = 1
+                        count = 1,
+                        quality = source.quality,
+                        conductivity = source.conductivity,
+                        speed = source.speed,
+                        experimentPoints = source.experimentPoints,
+                        energyUsed = source.energyUsed,
+                        potentialEnergy = source.potentialEnergy,
+                        coldResistance = source.coldResistance,
+                        decayResistance = source.decayResistance,
+                        entangleResistance = source.entangleResistance
                     });
                 }
                 else return false;
@@ -195,17 +388,31 @@ public sealed class PlayerInventory : NetworkBehaviour
         {
             string itemId;
             string itemName;
+            int quality = 0;
+            int conductivity = 0;
+            int speed = 0;
+            int experimentPoints = 0;
+            float energyUsed = 0f;
+            int potentialEnergy = 0;
+            int coldResistance = 0;
+            int decayResistance = 0;
+            int entangleResistance = 0;
             if (vehicleSlot == 0)
             {
                 if (!state.engineInstalled) return false;
                 itemId = "engine_cube";
                 itemName = "Engine Cube";
+                quality = state.engineQuality;
+                speed = state.engineSpeed;
+                experimentPoints = state.engineExperimentPoints;
             }
             else if (vehicleSlot == 1)
             {
                 if (!state.powerInstalled) return false;
                 itemId = "power_cube";
                 itemName = "Power Cube";
+                quality = state.powerQuality;
+                energyUsed = state.powerEnergyUsed;
             }
             else
             {
@@ -213,8 +420,19 @@ public sealed class PlayerInventory : NetworkBehaviour
                 if (index >= state.cargo.Count) return false;
                 itemId = state.cargo[index].itemId;
                 itemName = state.cargo[index].itemName;
+                quality = state.cargo[index].quality;
+                conductivity = state.cargo[index].conductivity;
+                speed = state.cargo[index].speed;
+                experimentPoints = state.cargo[index].experimentPoints;
+                energyUsed = state.cargo[index].energyUsed;
+                potentialEnergy = state.cargo[index].potentialEnergy;
+                coldResistance = state.cargo[index].coldResistance;
+                decayResistance = state.cargo[index].decayResistance;
+                entangleResistance = state.cargo[index].entangleResistance;
             }
-            if (itemId != expectedItemId || !TryAddItem(items, itemId, itemName, 1)) return false;
+            if (itemId != expectedItemId
+                || !TryAddItem(items, itemId, itemName, 1, quality, speed, experimentPoints, conductivity, energyUsed,
+                    potentialEnergy, coldResistance, decayResistance, entangleResistance)) return false;
             if (vehicleSlot == 0)
             {
                 state.engineInstalled = false;
@@ -223,6 +441,8 @@ public sealed class PlayerInventory : NetworkBehaviour
             else if (vehicleSlot == 1)
             {
                 state.powerInstalled = false;
+                state.powerQuality = 0;
+                state.powerEnergyUsed = 0f;
                 state.isOn = false;
             }
             else
@@ -288,7 +508,9 @@ public sealed class PlayerInventory : NetworkBehaviour
                     pickup.itemId,
                     pickup.itemName,
                     pickup.count,
-                    new Vector3(pickup.x, pickup.y, pickup.z));
+                    new Vector3(pickup.x, pickup.y, pickup.z), pickup.quality, pickup.speed,
+                    pickup.experimentPoints, pickup.conductivity, pickup.energyUsed, pickup.potentialEnergy,
+                    pickup.coldResistance, pickup.decayResistance, pickup.entangleResistance);
             }
         }
         catch (IOException exception)
@@ -328,14 +550,16 @@ public sealed class PlayerInventory : NetworkBehaviour
             return;
         }
 
-        if ((pickup.transform.position - transform.position).sqrMagnitude > PickupRange * PickupRange)
+        if (!PlayerInteraction.IsWithinItemInteractionRange(transform.position, pickup.transform.position))
         {
             ShowStatusClientRpc(new FixedString128Bytes("Move closer to collect that item."));
             return;
         }
 
         List<HostInventoryStore.SavedItem> updatedItems = CreateSavedItems();
-        if (!TryAddItem(updatedItems, pickup.ItemId, pickup.ItemName, pickup.ItemCount))
+        if (!TryAddItem(updatedItems, pickup.ItemId, pickup.ItemName, pickup.ItemCount, pickup.Quality,
+            pickup.Speed, pickup.ExperimentPoints, pickup.Conductivity, pickup.EnergyUsed, pickup.PotentialEnergy,
+            pickup.ColdResistance, pickup.DecayResistance, pickup.EntangleResistance))
         {
             ShowStatusClientRpc(new FixedString128Bytes("Your inventory is full."));
             return;
@@ -356,6 +580,14 @@ public sealed class PlayerInventory : NetworkBehaviour
         if (slotIndex < 0 || slotIndex >= slots.Count) return;
 
         InventorySlot selectedItem = slots[slotIndex];
+        if (selectedItem.ItemId.ToString() == "surveying_tool")
+        {
+            surveyingToolActive.Value = !surveyingToolActive.Value;
+            ShowStatusClientRpc(new FixedString128Bytes(
+                surveyingToolActive.Value ? "Surveying tool activated." : "Surveying tool deactivated."));
+            return;
+        }
+
         List<HostInventoryStore.SavedItem> updatedItems = CreateSavedItems();
         if (selectedItem.Count <= 1)
         {
@@ -392,6 +624,15 @@ public sealed class PlayerInventory : NetworkBehaviour
             itemId = selectedItem.ItemId.ToString(),
             itemName = selectedItem.ItemName.ToString(),
             count = selectedItem.Count,
+            quality = selectedItem.Quality,
+            conductivity = selectedItem.Conductivity,
+            speed = selectedItem.Speed,
+            experimentPoints = selectedItem.ExperimentPoints,
+            energyUsed = selectedItem.EnergyUsed,
+            potentialEnergy = selectedItem.PotentialEnergy,
+            coldResistance = selectedItem.ColdResistance,
+            decayResistance = selectedItem.DecayResistance,
+            entangleResistance = selectedItem.EntangleResistance,
             x = position.x,
             y = position.y,
             z = position.z
@@ -399,13 +640,20 @@ public sealed class PlayerInventory : NetworkBehaviour
 
         if (!TrySave(updatedItems, null, droppedPickup)) return;
 
+        if (selectedItem.ItemId.ToString() == "surveying_tool"
+            && !updatedItems.Exists(item => item.itemId == "surveying_tool"))
+        {
+            surveyingToolActive.Value = false;
+        }
         ApplySavedItems(updatedItems);
         SpawnDroppedPickupClientRpc(
             pickupId,
             droppedPickup.itemId,
             droppedPickup.itemName,
             droppedPickup.count,
-            position);
+            position, droppedPickup.quality, droppedPickup.speed, droppedPickup.experimentPoints,
+            droppedPickup.conductivity, droppedPickup.energyUsed, droppedPickup.potentialEnergy,
+            droppedPickup.coldResistance, droppedPickup.decayResistance, droppedPickup.entangleResistance);
         ShowStatusClientRpc(new FixedString128Bytes($"Dropped {droppedPickup.count} {droppedPickup.itemName}."));
     }
 
@@ -436,7 +684,16 @@ public sealed class PlayerInventory : NetworkBehaviour
         {
             itemId = selectedItem.ItemId.ToString(),
             itemName = selectedItem.ItemName.ToString(),
-            count = newStackCount
+            count = newStackCount,
+            quality = selectedItem.Quality,
+            conductivity = selectedItem.Conductivity,
+            speed = selectedItem.Speed,
+            experimentPoints = selectedItem.ExperimentPoints,
+            energyUsed = selectedItem.EnergyUsed,
+            potentialEnergy = selectedItem.PotentialEnergy,
+            coldResistance = selectedItem.ColdResistance,
+            decayResistance = selectedItem.DecayResistance,
+            entangleResistance = selectedItem.EntangleResistance
         });
 
         if (!TrySave(updatedItems)) return;
@@ -462,7 +719,7 @@ public sealed class PlayerInventory : NetworkBehaviour
 
         for (int i = 0; i < slots.Count; i++)
         {
-            if (slots[i].ItemId.Equals(selectedItem.ItemId))
+            if (SameItem(slots[i], selectedItem))
             {
                 if (firstMatchingIndex < 0) firstMatchingIndex = i;
                 matchingStackCount++;
@@ -479,7 +736,7 @@ public sealed class PlayerInventory : NetworkBehaviour
         List<HostInventoryStore.SavedItem> combinedItems = new List<HostInventoryStore.SavedItem>(currentItems.Count);
         for (int i = 0; i < currentItems.Count; i++)
         {
-            if (currentItems[i].itemId == itemId)
+            if (SameItem(slots[i], selectedItem))
             {
                 if (i == firstMatchingIndex)
                 {
@@ -490,7 +747,16 @@ public sealed class PlayerInventory : NetworkBehaviour
                         {
                             itemId = itemId,
                             itemName = itemName,
-                            count = stackCount
+                            count = stackCount,
+                            quality = selectedItem.Quality,
+                            conductivity = selectedItem.Conductivity,
+                            speed = selectedItem.Speed,
+                            experimentPoints = selectedItem.ExperimentPoints,
+                            energyUsed = selectedItem.EnergyUsed,
+                            potentialEnergy = selectedItem.PotentialEnergy,
+                            coldResistance = selectedItem.ColdResistance,
+                            decayResistance = selectedItem.DecayResistance,
+                            entangleResistance = selectedItem.EntangleResistance
                         });
                         remainingCount -= stackCount;
                     }
@@ -514,9 +780,12 @@ public sealed class PlayerInventory : NetworkBehaviour
         string itemId,
         string itemName,
         int itemCount,
-        Vector3 position)
+        Vector3 position, int quality, int speed, int experimentPoints, int conductivity, float energyUsed,
+        int potentialEnergy, int coldResistance, int decayResistance, int entangleResistance)
     {
-        WorldPickup.SpawnDroppedReplica(pickupId, itemId, itemName, itemCount, position);
+        WorldPickup.SpawnDroppedReplica(pickupId, itemId, itemName, itemCount, position,
+            quality, speed, experimentPoints, conductivity, energyUsed,
+            potentialEnergy, coldResistance, decayResistance, entangleResistance);
     }
 
     [ClientRpc]
@@ -535,19 +804,26 @@ public sealed class PlayerInventory : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void ShowStatusClientRpc(FixedString128Bytes message)
+    private void ShowStatusClientRpc(FixedString128Bytes message, ClientRpcParams clientRpcParams = default)
     {
         SetLocalStatus(message.ToString());
     }
 
-    private bool TryAddItem(List<HostInventoryStore.SavedItem> items, string itemId, string itemName, int count)
+    private bool TryAddItem(List<HostInventoryStore.SavedItem> items, string itemId, string itemName, int count,
+        int quality = 0, int speed = 0, int experimentPoints = 0, int conductivity = 0, float energyUsed = 0f,
+        int potentialEnergy = 0, int coldResistance = 0, int decayResistance = 0, int entangleResistance = 0)
     {
         if (count <= 0) return false;
 
         int remaining = count;
         for (int i = 0; i < items.Count; i++)
         {
-            if (items[i].itemId == itemId && items[i].count < MaximumStackSize)
+            if (itemId != "engine_prototype" && items[i].itemId == itemId && items[i].quality == quality
+                && items[i].conductivity == conductivity && items[i].speed == speed
+                && items[i].experimentPoints == experimentPoints && items[i].energyUsed == energyUsed
+                && items[i].potentialEnergy == potentialEnergy && items[i].coldResistance == coldResistance
+                && items[i].decayResistance == decayResistance && items[i].entangleResistance == entangleResistance
+                && items[i].count < MaximumStackSize)
             {
                 int amountToAdd = Mathf.Min(remaining, MaximumStackSize - items[i].count);
                 items[i].count += amountToAdd;
@@ -563,7 +839,16 @@ public sealed class PlayerInventory : NetworkBehaviour
             {
                 itemId = itemId,
                 itemName = itemName,
-                count = amountToAdd
+                count = amountToAdd,
+                quality = quality,
+                conductivity = conductivity,
+                speed = speed,
+                experimentPoints = experimentPoints,
+                energyUsed = energyUsed,
+                potentialEnergy = potentialEnergy,
+                coldResistance = coldResistance,
+                decayResistance = decayResistance,
+                entangleResistance = entangleResistance
             });
             remaining -= amountToAdd;
         }
@@ -581,7 +866,16 @@ public sealed class PlayerInventory : NetworkBehaviour
             {
                 itemId = slot.ItemId.ToString(),
                 itemName = slot.ItemName.ToString(),
-                count = slot.Count
+                count = slot.Count,
+                quality = slot.Quality,
+                conductivity = slot.Conductivity,
+                speed = slot.Speed,
+                experimentPoints = slot.ExperimentPoints,
+                energyUsed = slot.EnergyUsed,
+                potentialEnergy = slot.PotentialEnergy,
+                coldResistance = slot.ColdResistance,
+                decayResistance = slot.DecayResistance,
+                entangleResistance = slot.EntangleResistance
             });
         }
 
@@ -600,8 +894,28 @@ public sealed class PlayerInventory : NetworkBehaviour
                 continue;
             }
 
-            slots.Add(new InventorySlot(item.itemId, item.itemName, Mathf.Min(item.count, MaximumStackSize)));
+            slots.Add(new InventorySlot(item.itemId, item.itemName, Mathf.Min(item.count, MaximumStackSize),
+                item.quality, item.speed, item.experimentPoints, item.conductivity, item.energyUsed,
+                item.potentialEnergy, item.coldResistance, item.decayResistance, item.entangleResistance));
         }
+    }
+
+    private static bool SameItem(HostInventoryStore.SavedItem a, HostInventoryStore.SavedItem b)
+    {
+        return a.itemId == b.itemId && a.quality == b.quality && a.conductivity == b.conductivity && a.speed == b.speed
+            && a.experimentPoints == b.experimentPoints && a.energyUsed == b.energyUsed
+            && a.potentialEnergy == b.potentialEnergy && a.coldResistance == b.coldResistance
+            && a.decayResistance == b.decayResistance && a.entangleResistance == b.entangleResistance;
+    }
+
+    public static bool SameItem(InventorySlot a, InventorySlot b)
+    {
+        return a.ItemId.ToString() != "engine_prototype"
+            && a.ItemId.Equals(b.ItemId) && a.Quality == b.Quality
+            && a.Conductivity == b.Conductivity && a.Speed == b.Speed
+            && a.ExperimentPoints == b.ExperimentPoints && a.EnergyUsed == b.EnergyUsed
+            && a.PotentialEnergy == b.PotentialEnergy && a.ColdResistance == b.ColdResistance
+            && a.DecayResistance == b.DecayResistance && a.EntangleResistance == b.EntangleResistance;
     }
 
     private bool TrySave(

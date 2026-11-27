@@ -9,9 +9,12 @@ public sealed class PlayerOcclusionOutline : NetworkBehaviour
 
     private readonly RaycastHit[] raycastHits = new RaycastHit[32];
     private Camera playerCamera;
+    private VehicleInteraction vehicleInteraction;
+    
     private void Awake()
     {
         SetOutlineVisible(false);
+        vehicleInteraction = GetComponent<VehicleInteraction>();
 
         if (outlineRenderer == null || playerRenderer == null)
         {
@@ -22,6 +25,13 @@ public sealed class PlayerOcclusionOutline : NetworkBehaviour
     private void LateUpdate()
     {
         if (!IsOwner)
+        {
+            SetOutlineVisible(false);
+            return;
+        }
+
+        // Don't show outline when riding a vehicle
+        if (vehicleInteraction != null && vehicleInteraction.IsRidingVehicle)
         {
             SetOutlineVisible(false);
             return;

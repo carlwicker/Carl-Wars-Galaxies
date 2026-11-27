@@ -1,58 +1,62 @@
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+[RequireComponent(typeof(Light))]
 public sealed class SceneLighting : MonoBehaviour
 {
+    private const double DaySeconds = 20 * 60;
+    private const double CycleSeconds = 2 * DaySeconds;
+    private const double TransitionSeconds = 2 * 60;
+
+    private Light sunLight;
+    private float daytimeSunIntensity;
+    private Color daytimeAmbient;
+    private double sceneStartTime;
+
     private void Awake()
     {
-        SetupSceneLighting();
+        sunLight = GetComponent<Light>();
+        if (sunLight.type != LightType.Directional)
+        {
+            Debug.LogError("SceneLighting requires a directional light.", this);
+            enabled = false;
+            return;
+        }
+
+        daytimeSunIntensity = sunLight.intensity;
+        daytimeAmbient = RenderSettings.ambientSkyColor;
+        sceneStartTime = Time.realtimeSinceStartupAsDouble;
+        RenderSettings.ambientMode = AmbientMode.Flat;
+        ApplyDaylight(1f);
     }
 
-    private void SetupSceneLighting()
+    private void Update()
     {
-        // MAXIMUM BRIGHTNESS SETTINGS
-        
-        // Set render settings for MAXIMUM BRIGHTNESS
-        RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = Color.white;
-        RenderSettings.ambientIntensity = 5f; // VERY BRIGHT
-        
-        // Disable reflections that might darken
-        RenderSettings.reflectionIntensity = 0f;
-        RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
+        NetworkManager manager = NetworkManager.Singleton;
+        double elapsed = manager != null && manager.IsListening && (manager.IsServer || manager.IsConnectedClient)
+            ? manager.ServerTime.Time
+            : Time.realtimeSinceStartupAsDouble - sceneStartTime;
 
-        // Destroy ALL existing lights to avoid conflicts
-        Light[] allLights = FindObjectsOfType<Light>(true);
-        foreach (Light light in allLights)
+        // Start at midday; network sessions share the host's clock, including late joiners.
+        ApplyDaylight(DaylightAtTime(elapsed + DaySeconds / 2));
+    }
+
+    private static float DaylightAtTime(double seconds)
+    {
+        double timeOfCycle = ((seconds % CycleSeconds) + CycleSeconds) % CycleSeconds;
+        if (timeOfCycle >= DaySeconds)
         {
-            if (light.gameObject.name != "Sun")
-            {
-                Destroy(light.gameObject);
-            }
+            return 0f;
         }
 
-        // Create or find the Sun
-        Light sunLight = FindObjectOfType<Light>();
-        if (sunLight == null || sunLight.gameObject.name != "Sun")
-        {
-            // Clear all lights first
-            foreach (Light light in FindObjectsOfType<Light>())
-            {
-                Destroy(light.gameObject);
-            }
-            
-            // Create new Sun
-            GameObject sunObject = new GameObject("Sun");
-            sunLight = sunObject.AddComponent<Light>();
-        }
+        double fade = System.Math.Min(timeOfCycle / TransitionSeconds, (DaySeconds - timeOfCycle) / TransitionSeconds);
+        return Mathf.SmoothStep(0f, 1f, (float)System.Math.Min(fade, 1d));
+    }
 
-        // Set Sun to MAXIMUM brightness
-        sunLight.type = LightType.Directional;
-        sunLight.intensity = 5f; // VERY BRIGHT
-        sunLight.color = Color.white;
-        sunLight.transform.rotation = Quaternion.Euler(45f, 45f, 0f);
-        sunLight.shadows = LightShadows.None; // Disable shadows for maximum brightness
-        
-        Debug.Log($"Scene lighting reset - Ambient: {RenderSettings.ambientIntensity}, Sun: {sunLight.intensity}");
+    private void ApplyDaylight(float daylight)
+    {
+        sunLight.intensity = daytimeSunIntensity * daylight;
+        RenderSettings.ambientLight = Color.Lerp(Color.black, daytimeAmbient, daylight);
     }
 }

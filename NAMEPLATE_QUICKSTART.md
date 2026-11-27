@@ -70,15 +70,14 @@ nameplateComponent.Refresh();
 ## Status
 
 ✅ **Build**: Success (0 errors)
-✅ **Testing**: Complete
-✅ **Ready**: For use and expansion
+Visual appearance should be checked in Unity Play mode.
 
 ## Next Steps
 
 1. **Review**: Check updated files (Vehicle.cs, PlayerChat.cs, WorldPickup.cs)
 2. **Test**: Run game and verify nameplates display correctly
 3. **Extend**: Use examples to add nameplates to new object types (NPCs, buildings, etc.)
-4. **Monitor**: The old `NameplateBackground.cs` can be deprecated after full migration
+4. **Keep the renderer**: `UnifiedNameplate` requires `NameplateBackground.cs`.
 
 ## Need Help?
 
@@ -89,9 +88,9 @@ nameplateComponent.Refresh();
   → Check that UnifiedNameplate component is added and Refresh() is called after text changes
 
 - **Can I customize colors?**
-  → Edit UnifiedNameplate.cs fields (backgroundColor, textColor, padding)
+  → Background color and padding are configured on `NameplateBackground`.
 
 ---
 
 **Last Updated**: 2026-11-26
-**Status**: ✅ Complete and Ready for Production
+**Status**: Requires visual verification in Unity.

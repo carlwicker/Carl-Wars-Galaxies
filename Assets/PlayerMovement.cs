@@ -15,6 +15,7 @@ public class PlayerMovement : NetworkBehaviour
     private VehicleInteraction vehicleInteraction;
     private CameraFollow cameraFollow;
     private Vector3 velocity;
+    private bool missingVehicleReported;
     private readonly Matrix4x4 isoMatrix = Matrix4x4.Rotate(Quaternion.Euler(0, 45f, 0));
 
     private void Awake()
@@ -41,13 +42,27 @@ public class PlayerMovement : NetworkBehaviour
 
         if (playerChat == null || !playerChat.IsChatActive)
         {
-            HandleMovement();
-            ApplyGravity();
+            Vehicle vehicle = null;
+            if (vehicleInteraction != null && vehicleInteraction.IsRidingVehicle)
+            {
+                if (!vehicleInteraction.TryGetRiddenVehicle(out vehicle))
+                {
+                    if (!missingVehicleReported)
+                        Debug.LogError("Cannot move: the mounted vehicle is missing.", this);
+                    missingVehicleReported = true;
+                    return;
+                }
+                vehicle.RefreshRiderCollision();
+            }
+            missingVehicleReported = false;
+            HandleMovement(vehicle);
+            ApplyGravity(vehicle);
         }
     }
 
-    private void HandleMovement()
+    private void HandleMovement(Vehicle vehicle)
     {
+        if (vehicle != null && !vehicle.IsOn) return;
         if (Keyboard.current == null) return;
 
         float x = 0f;
@@ -77,17 +92,17 @@ public class PlayerMovement : NetworkBehaviour
             }
 
             moveDirection.Normalize();
-            float speedMultiplier = vehicleInteraction != null && vehicleInteraction.IsRidingVehicle
-                ? vehicleSpeedMultiplier
-                : 1f;
-            controller.Move(moveDirection * moveSpeed * speedMultiplier * Time.deltaTime);
-
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            Quaternion rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            float speedMultiplier = vehicle != null ? vehicleSpeedMultiplier * vehicle.EngineSpeedMultiplier : 1f;
+            Vector3 movement = moveDirection * moveSpeed * speedMultiplier * Time.deltaTime;
+            if (vehicle != null) transform.rotation = vehicle.ConstrainRiderRotation(controller, rotation);
+            Move(movement, vehicle);
+            if (vehicle == null) transform.rotation = rotation;
         }
     }
 
-    private void ApplyGravity()
+    private void ApplyGravity(Vehicle vehicle)
     {
         if (controller.isGrounded && velocity.y < 0)
         {
@@ -95,6 +110,29 @@ public class PlayerMovement : NetworkBehaviour
         }
 
         velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        Vector3 movement = velocity * Time.deltaTime;
+        if (!Move(movement, vehicle) && velocity.y < 0f) velocity.y = -2f;
+    }
+
+    private bool Move(Vector3 movement, Vehicle vehicle)
+    {
+        if (vehicle == null)
+        {
+            controller.Move(movement);
+            return true;
+        }
+
+        Vector3 constrainedMovement = vehicle.ConstrainRiderMovement(controller, movement);
+        Vector3 previousPosition = transform.position;
+        controller.Move(constrainedMovement);
+        if (!vehicle.IsRiderPositionClear(controller, previousPosition))
+        {
+            controller.enabled = false;
+            transform.position = previousPosition;
+            controller.enabled = true;
+            vehicle.RefreshRiderCollision();
+            return false;
+        }
+        return (constrainedMovement - movement).sqrMagnitude < 0.000001f;
     }
 }

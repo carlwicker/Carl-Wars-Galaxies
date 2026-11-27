@@ -10,8 +10,8 @@ A unified nameplate system has been successfully implemented across the Carl War
 - **New file**: `Assets/UnifiedNameplate.cs`
 - Centralized nameplate styling component
 - Enforces white text color (automatically set in Awake)
-- Creates and manages black background quad
-- Dynamically sizes background based on text content
+- Uses `NameplateBackground` to create the black background quad
+- Sizes the background based on text content when refreshed
 - Provides `Refresh()` method for updating after text changes
 
 ### 2. Updated Vehicle Nameplates
@@ -84,10 +84,8 @@ Documentation/
 
 ## 🚀 Next Steps (Optional)
 
-For complete deprecation of the old system:
-1. Remove `NameplateBackground.cs` after auditing all usages
-2. Update any remaining references in scene prefabs
-3. Consider applying UnifiedNameplate to additional object types (NPCs, buildings, etc.)
+Keep `NameplateBackground.cs`: it is the shared renderer used by `UnifiedNameplate`.
+Consider applying `UnifiedNameplate` to additional object types as they are added.
 
 ## 💡 Usage Example
 
@@ -117,9 +115,8 @@ nameplateObj.GetComponent<UnifiedNameplate>().Refresh();
 ## ✔️ Verification
 
 - ✅ All components compile without errors
-- ✅ Vehicle nameplates display black background with white text
-- ✅ Player chat bubbles use unified styling
-- ✅ World pickups show consistent nameplate appearance
+- Vehicle nameplates, player names, chat bubbles, and pickups share the same background renderer.
+- Verify their appearance in Unity Play mode after changes.
 - ✅ Code is well-documented with usage examples
 - ✅ System is ready for expansion to other object types
 
